@@ -35,6 +35,7 @@ echo "$val"
 function get_metadata()
 {
     TAGS_ARRAY=()
+    HOST_LABELS=$(echo $HOST_LABELS | tr -d ' ')
     IFS=',' read -ra LABELS <<< "$HOST_LABELS"
     for i in "${LABELS[@]}"; do
         val=$(get_url "http://rancher-metadata/latest/self/host/labels/${i}")
@@ -86,7 +87,15 @@ if [[ $TAGS ]]; then
 fi
 
 #
-# Switch to original image entrypoint
+# Unset DOGSTATSD_ONLY environment variable if set to 'false'
 #
 
-exec /entrypoint.sh
+if [[ "${DOGSTATSD_ONLY,,}" = "false" ]]; then
+    unset DOGSTATSD_ONLY
+fi
+
+#
+# Exec the original entrypoint
+#
+
+exec /entrypoint.sh "$@"
