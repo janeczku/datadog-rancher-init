@@ -1,4 +1,4 @@
-.PHONY: all push push-legacy container clean
+.PHONY: all build push container clean
 
 IMAGE = janeczku/datadog-rancher-init
 VERSION = $(shell cat VERSION)
@@ -13,6 +13,7 @@ build:
 			mkdir -p bin && \
 			gcc -Os -Wall -static -o rootfs/pause $(PAUSE_SRC) && \
 			strip rootfs/pause"
+	chmod +x rootfs/pause
 
 container:
 	docker build -t $(IMAGE):$(VERSION) .

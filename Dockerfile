@@ -1,6 +1,6 @@
-FROM busybox
+FROM busybox:latest
+MAINTAINER Jan Bruder <jan@rancher.com>
+
 COPY rootfs /
-RUN chmod +x /opt/rancher/entrypoint-wrapper.py \
-	&& chmod +x /pause
 VOLUME ["/opt/rancher"]
 CMD ["/pause"]

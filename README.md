@@ -1,9 +1,9 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/janeczku/datadog-rancher-init.svg)](https://hub.docker.com/r/janeczku/datadog-rancher-init)
 
-Image used for configuration sidekick container to run the official [Datadog Agent image](https://www.github.com/DataDog/docker-dd-agent) in Rancher (Cattle and Kubernetes).
+Image used in configuration sidekick container that provides better integration of the official [Datadog Agent image](https://www.github.com/DataDog/docker-dd-agent) with Rancher (Cattle and Kubernetes).
 
-    * Sets the reported hostname to the name of the host
-    * Sets DataDog tags from Rancher host and container labels
+    * Correct naming of hosts in Datadog
+    * Exports Rancher host and service labels as Datadog tags
 
 #### Build the image
 

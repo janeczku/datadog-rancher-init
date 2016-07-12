@@ -4,9 +4,12 @@
 	Used in Datadog Rancher Catalog stack for Cattle and Kubernetes environments
 
 	Configuration passed via environment variables:
-	DOGSTATSD_ONLY - standalone DogStatsD (true|false)
-	HOST_LABELS - comma seperated list of host labels to map to Datadog tags
-	CONTAINER_LABELS - comma seperated list of container labels to map to Datadog tags
+	DD_SERVICE_DISCOVERY - whether to enable service discovery (true|false)
+	DD_SD_CONFIG_BACKEND - configuration backend for service discovery (none|etcd|consul)
+	DD_STATSD_STANDALONE - standalone DogStatsD (true|false)
+	DD_HOST_LABELS - comma seperated list of host labels to export as Datadog host tags
+	DD_CONTAINER_LABELS - comma seperated list of container labels to export as Datadog metric tags
+	DD_KUBERNETES - if set, skips export of container labels as tags
 	----
 	Copyright (c) 2016 Rancher Labs, Inc.
 	Licensed under the Apache License, Version 2.0 (see LICENSE)
@@ -43,11 +46,14 @@ def get_metadata(path, timeout=0):
 				raise RuntimeError("Failed to query Rancher Metadata (%s): %s" % (path, str(e)))
 			time.sleep(1.0)
 			continue
+		try:
+			json_obj = response.json()
+		except ValueError, e:
+			if time.time() > timeout_at:
+				raise RuntimeError("Could not decode response from Rancher Metadata API (%s) %s" % (path, str(e)))
+			time.sleep(1.0)
+			continue
 		break
-	try:
-		json_obj = response.json()
-	except ValueError, e:
-		raise RuntimeError("Could not decode response from Rancher Metadata API (%s) %s" % (path, str(e)))
 	return json_obj
 
 def rewrite_config(filename, replacements):
@@ -65,24 +71,36 @@ def rewrite_config(filename, replacements):
 	os.rename(tmp_file, filename)
 
 def main():
-	env_dogstatsd_only = os.environ.get('DOGSTATSD_ONLY','')
 	host_labels = list()
 	container_labels = list()
 	host_tags = dict()
 	replace_conf_agent = dict()
 	replace_conf_docker = dict()
+	replace_conf_docker["# performance_tags:.*$"] = 'performance_tags: ["image_name", "image_tag"]'
+	replace_conf_docker["# container_tags:.*$"] = 'container_tags: ["image_name", "image_tag"]'
 
-	if len(os.environ.get('HOST_LABELS','')) > 0:
-		host_labels = [item.strip() for item in os.environ.get('HOST_LABELS','').split(',')]
+	dd_env_config = dict()
+
+	'''
+	Datadog Agent config environment variables:
+	DD_HOSTNAME
+	TAGS
+	DOGSTATSD_ONLY
+	SD_BACKEND
+	SD_CONFIG_BACKEND
+	'''
+
+	if os.environ.get('DD_HOST_LABELS',''):
+		host_labels = [item.strip() for item in os.environ.get('DD_HOST_LABELS','').split(',')]
 	
 	print "Querying Rancher Metadata API"
-
 	host = get_metadata('/self/host', TIMEOUT)
 	hostname = host.get('name', '')
 	for key, value in host.get('labels', {}).iteritems():
 		if key in host_labels:
 			host_tags[key] = value
 
+	# TODO: set to environment instead of rewriting datadog.conf. Depends on DD Alpine image bug fix.
 	if host_tags:
 		host_tags_str = ", ".join(['%s:%s' % (key, value) for (key, value) in host_tags.items()])
 		replace_conf_agent["#tags:.*$"] = "tags: %s" % host_tags_str
@@ -91,28 +109,41 @@ def main():
 		replace_conf_agent["#hostname:.*$"] = "hostname: %s" % hostname
 
 	print "Hostname: %s" % hostname
-	print "Host labels as tags:"
+	print "Exporting host labels as host tags:"
 	for key in host_tags:
 		print "- %s=%s" % (key, host_tags[key])
 
-	# We only map container labels in Rancher Cattle environment.
-	if not "KUBE_SIDEKICK" in os.environ:
-		if len(os.environ.get('CONTAINER_LABELS','')) > 0:
-			env_container_labels = set([item.strip() for item in os.environ.get('CONTAINER_LABELS','').split(',')])
+	# Don't export service labels in Kubernetes environments
+	if not "DD_KUBERNETES" in os.environ:
+		if os.environ.get('DD_CONTAINER_LABELS',''):
+			env_container_labels = set([item.strip() for item in os.environ.get('DD_CONTAINER_LABELS','').split(',')])
 		else:
 			env_container_labels = set()
 		container_labels = list(env_container_labels | DEFAULT_CONTAINER_LABELS)
 		replace_conf_docker["# collect_labels_as_tags:.*$"] = "collect_labels_as_tags: %s" % container_labels
-		print "Container labels as tags:"
+		print "Exporting container labels as metric tags:"
 		for item in container_labels:
 			print "- %s" % item
 
 	rewrite_config(DD_AGENT_CONFIG, replace_conf_agent)
 	rewrite_config(DD_DOCKER_CONFIG, replace_conf_docker)
 
-	# Unset DOGSTATSD_ONLY environment variable
-	if env_dogstatsd_only == 'false':
-		del os.environ['DOGSTATSD_ONLY']
+	# Service Discovery
+	sd_enabled = os.getenv('DD_SERVICE_DISCOVERY', 'false').lower()
+	sd_backend = os.getenv('DD_SD_CONFIG_BACKEND', 'none').lower()
+	if sd_enabled == 'true':
+		dd_env_config['SD_BACKEND'] = 'docker'
+		if sd_backend != 'none':
+			dd_env_config['SD_CONFIG_BACKEND'] = sd_backend
+
+	# StatsD
+	statsd_standalone = os.environ.get('DD_STATSD_STANDALONE','false').lower()
+	if statsd_standalone == 'true':
+		dd_env_config['DOGSTATSD_ONLY'] = 'true'
+
+	# Export dd-agent config
+	for k, v in dd_env_config.iteritems():
+		os.environ[k] = v
 
 	# Exec docker-dd-agent image entrypoint
 	os.execv("/entrypoint.sh", sys.argv)
