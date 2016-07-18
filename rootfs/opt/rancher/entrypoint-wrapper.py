@@ -76,9 +76,6 @@ def main():
 	host_tags = dict()
 	replace_conf_agent = dict()
 	replace_conf_docker = dict()
-	replace_conf_docker["# performance_tags:.*$"] = 'performance_tags: ["image_name", "image_tag"]'
-	replace_conf_docker["# container_tags:.*$"] = 'container_tags: ["image_name", "image_tag"]'
-
 	dd_env_config = dict()
 
 	'''
