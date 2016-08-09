@@ -6,6 +6,8 @@
 	Configuration passed via environment variables:
 	DD_SERVICE_DISCOVERY - whether to enable service discovery (true|false)
 	DD_SD_CONFIG_BACKEND - configuration backend for service discovery (none|etcd|consul)
+	DD_CONSUL_TOKEN - Consul token granting read access to the configuration template path
+	DD_CONSUL_SCHEME - Scheme used to connect to Consul store (http|https)
 	DD_STATSD_STANDALONE - standalone DogStatsD (true|false)
 	DD_HOST_LABELS - comma seperated list of host labels to export as Datadog host tags
 	DD_CONTAINER_LABELS - comma seperated list of container labels to export as Datadog metric tags
@@ -70,6 +72,10 @@ def rewrite_config(filename, replacements):
 		temp.close()
 	os.rename(tmp_file, filename)
 
+def append_config(filename, append_str):
+	with open(filename, "a") as f:
+		f.write(append_str)
+
 def main():
 	host_labels = list()
 	container_labels = list()
@@ -132,6 +138,14 @@ def main():
 		dd_env_config['SD_BACKEND'] = 'docker'
 		if sd_backend != 'none':
 			dd_env_config['SD_CONFIG_BACKEND'] = sd_backend
+		if sd_backend == 'consul':
+			append_agent_conf = ''
+			if os.getenv('DD_CONSUL_TOKEN'):
+				append_agent_conf += "consul_token: %s\n" % os.getenv('DD_CONSUL_TOKEN')
+			if os.getenv('DD_CONSUL_SCHEME'):
+				append_agent_conf += "consul_scheme: %s\n" % os.getenv('DD_CONSUL_SCHEME')
+			if append_agent_conf:
+				append_config(DD_AGENT_CONFIG, append_agent_conf)
 
 	# StatsD
 	statsd_standalone = os.environ.get('DD_STATSD_STANDALONE','false').lower()
