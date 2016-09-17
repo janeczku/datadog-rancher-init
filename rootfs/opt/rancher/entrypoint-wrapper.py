@@ -12,6 +12,7 @@
 	DD_HOST_LABELS - comma seperated list of host labels to export as Datadog host tags
 	DD_CONTAINER_LABELS - comma seperated list of container labels to export as Datadog metric tags
 	DD_KUBERNETES - if set, skips export of container labels as tags
+	DD_METADATA_HOSTNAME - hostname used to query Rancher's metadata service, default: rancher-metadata
 	----
 	Copyright (c) 2016 Rancher Labs, Inc.
 	Licensed under the Apache License, Version 2.0 (see LICENSE)
@@ -26,7 +27,7 @@ import os
 import sys
 
 TIMEOUT = 15
-METADATA_API_URL = "http://rancher-metadata/latest"
+METADATA_API_URL = "http://%s/latest" % (os.environ.get('DD_METADATA_HOSTNAME','rancher-metadata'))
 DD_AGENT_CONFIG = "/etc/dd-agent/datadog.conf"
 DD_DOCKER_CONFIG = "/etc/dd-agent/conf.d/docker_daemon.yaml"
 
