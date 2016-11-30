@@ -78,6 +78,7 @@ def append_config(filename, append_str):
 		f.write(append_str)
 
 def main():
+	tags = list()
 	host_labels = list()
 	container_labels = list()
 	host_tags = dict()
@@ -94,6 +95,10 @@ def main():
 	SD_CONFIG_BACKEND
 	'''
 
+	if os.environ.get('TAGS', ''):
+		tags = [item.strip() for item in os.environ.get('TAGS', '').split(',')]
+		host_tags = dict([tag.split(':') if ':' in tag else [tag, None] for tag in tags])
+
 	if os.environ.get('DD_HOST_LABELS',''):
 		host_labels = [item.strip() for item in os.environ.get('DD_HOST_LABELS','').split(',')]
 	
@@ -106,7 +111,7 @@ def main():
 
 	# TODO: set to environment instead of rewriting datadog.conf. Depends on DD Alpine image bug fix.
 	if host_tags:
-		host_tags_str = ", ".join(['%s:%s' % (key, value) for (key, value) in host_tags.items()])
+		host_tags_str = ", ".join(['%s:%s' % (key, value) if value is not None else key for (key, value) in host_tags.items()])
 		replace_conf_agent["#tags:.*$"] = "tags: %s" % host_tags_str
 
 	if hostname:
@@ -115,7 +120,7 @@ def main():
 	print "Hostname: %s" % hostname
 	print "Exporting host labels as host tags:"
 	for key in host_tags:
-		print "- %s=%s" % (key, host_tags[key])
+		print ("- %s=%s" % (key, host_tags[key]) if host_tags[key] is not None else "- %s" % key)
 
 	# Don't export service labels in Kubernetes environments
 	if not "DD_KUBERNETES" in os.environ:
