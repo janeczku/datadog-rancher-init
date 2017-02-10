@@ -107,10 +107,10 @@ def main():
 	# TODO: set to environment instead of rewriting datadog.conf. Depends on DD Alpine image bug fix.
 	if host_tags:
 		host_tags_str = ", ".join(['%s:%s' % (key, value) for (key, value) in host_tags.items()])
-		replace_conf_agent["#tags:.*$"] = "tags: %s" % host_tags_str
+		replace_conf_agent["# tags:.*$"] = "tags: %s" % host_tags_str
 
 	if hostname:
-		replace_conf_agent["#hostname:.*$"] = "hostname: %s" % hostname
+		replace_conf_agent["# hostname:.*$"] = "hostname: %s" % hostname
 
 	print "Hostname: %s" % hostname
 	print "Exporting host labels as host tags:"
