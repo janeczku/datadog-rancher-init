@@ -6,9 +6,9 @@
 	Configuration passed via environment variables:
 	DD_SERVICE_DISCOVERY - whether to enable service discovery (true|false)
 	DD_SD_CONFIG_BACKEND - configuration backend for service discovery (none|etcd|consul)
-	DD_CONSUL_TOKEN - Consul token granting read access to the configuration template path
+	DD_CONSUL_TOKEN - Consul ACL token granting read access to the configuration template path
 	DD_CONSUL_SCHEME - Scheme used to connect to Consul store (http|https)
-	DD_STATSD_STANDALONE - standalone DogStatsD (true|false)
+	DD_CONSUL_VERIFY - Whether to verify the SSL certificate for HTTPS requests (true|false)
 	DD_HOST_LABELS - comma seperated list of host labels to export as Datadog host tags
 	DD_CONTAINER_LABELS - comma seperated list of container labels to export as Datadog metric tags
 	DD_KUBERNETES - if set, skips export of container labels as tags
@@ -150,13 +150,10 @@ def main():
 				append_agent_conf += "consul_token: %s\n" % os.getenv('DD_CONSUL_TOKEN')
 			if os.getenv('DD_CONSUL_SCHEME'):
 				append_agent_conf += "consul_scheme: %s\n" % os.getenv('DD_CONSUL_SCHEME')
+			if os.getenv('DD_CONSUL_VERIFY'):
+				append_agent_conf += "consul_verify: %s\n" % os.getenv('DD_CONSUL_VERIFY')
 			if append_agent_conf:
 				append_config(DD_AGENT_CONFIG, append_agent_conf)
-
-	# StatsD
-	statsd_standalone = os.environ.get('DD_STATSD_STANDALONE','false').lower()
-	if statsd_standalone == 'true':
-		dd_env_config['DOGSTATSD_ONLY'] = 'true'
 
 	# Export dd-agent config
 	for k, v in dd_env_config.iteritems():
