@@ -1,4 +1,5 @@
 #!/opt/datadog-agent/embedded/bin/python
+
 '''
 	Rancher sidekick entrypoint wrapper for datadog/docker-dd-agent
 	Used in Datadog Rancher Catalog stack for Cattle and Kubernetes environments
@@ -29,6 +30,7 @@ import re
 import json
 import os
 import sys
+import time
 
 # ENVIRONMENT VARIABLE NAMES
 ENV_SD_ENABLED       = "DD_SERVICE_DISCOVERY"
@@ -43,7 +45,7 @@ ENV_HOST_TAGS        = "DD_HOST_TAGS"
 ENV_HOST_LABELS      = "DD_HOST_LABELS"
 ENV_CONTAINER_LABELS = "DD_CONTAINER_LABELS"
 ENV_IS_KUBERNETES    = "DD_KUBERNETES"
-ENV_IS_DEBIAN_IMAGE  = "DD_IS_DEBIAN_IMAGE"
+ENV_IS_ALPINE_IMAGE  = "DD_IS_ALPINE_IMAGE"
 
 # METADATA API
 TIMEOUT = 15
@@ -97,6 +99,8 @@ def append_config(filename, append_str):
 		f.write(append_str)
 
 def main():
+	time.sleep( 2 )
+	print "Rancher Wrapper"
 	tags = list()
 	host_labels = list()
 	container_labels = list()
@@ -107,12 +111,12 @@ def main():
 	agent_conf_path = ''
 	docker_conf_Path = ''
 
-	if os.getenv(ENV_IS_DEBIAN_IMAGE, 'false') == 'true':
-		agent_conf_path = DD_AGENT_CONFIG_DEBIAN
-		docker_conf_Path = DD_DOCKER_CONFIG_DEBIAN
-	else:
+	if os.getenv(ENV_IS_ALPINE_IMAGE, 'false') == 'true':
 		agent_conf_path = DD_AGENT_CONFIG_ALPINE
 		docker_conf_Path = DD_DOCKER_CONFIG_ALPINE
+	else:
+		agent_conf_path = DD_AGENT_CONFIG_DEBIAN
+		docker_conf_Path = DD_DOCKER_CONFIG_DEBIAN
 
 	if os.getenv(ENV_HOST_TAGS):
 		tags = [item.strip() for item in os.getenv(ENV_HOST_TAGS, '').split(',')]
@@ -151,8 +155,8 @@ def main():
 			for item in container_labels:
 				print "- %s" % item
 
-	rewrite_config(DD_AGENT_CONFIG, replace_conf_agent)
-	rewrite_config(DD_DOCKER_CONFIG, replace_conf_docker)
+	rewrite_config(agent_conf_path, replace_conf_agent)
+	rewrite_config(docker_conf_Path, replace_conf_docker)
 
 	# Service Discovery
 	sd_enabled = os.getenv(ENV_SD_ENABLED, 'false').lower()
@@ -185,10 +189,13 @@ def main():
 
 	# Write extra agent conf
 	if append_agent_conf:
-		append_config(DD_AGENT_CONFIG, append_agent_conf)
+		append_config(agent_conf_path, append_agent_conf)
 
-	# Exec docker-dd-agent image entrypoint
-	os.execv("/entrypoint.sh", sys.argv)
+	print "Executing DD agent entrypoint"
+	if os.getenv(ENV_IS_ALPINE_IMAGE, 'false') == 'true':
+		os.execv("/sbin/tini", ["/sbin/tini", "-g", "--", "/entrypoint.sh"] + sys.argv[1:])
+	else:
+		os.execv("/entrypoint.sh", ["/entrypoint.sh"] + sys.argv[1:])
 
 if __name__ == "__main__":
 	main()
