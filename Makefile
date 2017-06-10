@@ -1,11 +1,11 @@
-.PHONY: all build push container clean
+.PHONY: all pause-bin push image clean
 
 IMAGE = janeczku/datadog-rancher-init
 VERSION = $(shell cat VERSION)
 COMPILE_IMAGE = jaschac/debian-gcc
 PAUSE_SRC = pause/pause.c
 
-build:
+pause-bin:
 	docker run -v $$(pwd):/build \
 		$(COMPILE_IMAGE) \
 		/bin/bash -c "\
@@ -15,7 +15,7 @@ build:
 			strip rootfs/pause"
 	chmod +x rootfs/pause
 
-container:
+image:
 	docker build -t $(IMAGE):$(VERSION) .
 	docker tag $(IMAGE):$(VERSION) $(IMAGE):latest
 
