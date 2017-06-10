@@ -1,4 +1,4 @@
-#!/opt/datadog-agent/embedded/bin/python
+#!/opt/datadog-agent/embedded/bin/python -u
 
 '''
 	Rancher sidekick entrypoint wrapper for datadog/docker-dd-agent
